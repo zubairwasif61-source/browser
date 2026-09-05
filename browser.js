@@ -8,9 +8,6 @@ class Browser {
       historyIndex: -1
     }];
     this.activeTabId = '1';
-    // Updated to use a more reliable CORS proxy with fallback
-    this.corsProxy = 'https://api.allorigins.win/get?url=';
-    this.proxyFallback = 'https://thingproxy.freeboard.io/fetch/';
     
     this.init();
   }
@@ -175,7 +172,8 @@ class Browser {
       return;
     }
 
-    const proxyUrl = this.corsProxy + encodeURIComponent(tab.url);
+    // Use thingproxy which works directly with URLs
+    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + tab.url;
     
     contentEl.innerHTML = `
       <iframe 
