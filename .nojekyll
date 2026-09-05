@@ -1,0 +1,15 @@
+# Static Files for GitHub Pages
+
+This browser runs entirely as a static site on GitHub Pages.
+
+## Files
+
+- `index.html` - Main browser UI
+- `browser.js` - Browser logic (tabs, history, navigation)
+- `.nojekyll` - Tells GitHub Pages to serve static files as-is
+
+## Deployment
+
+Push to GitHub and it will automatically deploy to GitHub Pages.
+
+Access it at: `https://zubairwasif61-source.github.io/browser`
