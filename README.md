@@ -1,28 +1,27 @@
 # Browser
 
-A lightweight, cross-platform browser built with Tauri and Rust.
+A web-based browser built with Next.js and React.
 
 ## Features
 
-- Lightweight desktop application
-- Cross-platform (Windows, macOS, Linux)
-- Modern web rendering with WebView
 - Tabbed browsing
-- URL navigation
-- History tracking
+- URL navigation via iframe
+- Browser history (back/forward)
+- Address bar with URL input
+- Responsive design
+- No desktop dependencies required
 
 ## Tech Stack
 
-- **Backend:** Rust
-- **Frontend:** Vue.js / React
-- **Runtime:** Tauri
-- **Build Tool:** Vite
+- **Frontend:** React + TypeScript
+- **Framework:** Next.js (App Router)
+- **Styling:** Tailwind CSS
+- **Runtime:** Node.js
 
 ## Getting Started
 
 ### Prerequisites
 
-- Rust 1.70+
 - Node.js 18+
 - npm or yarn
 
@@ -37,34 +36,53 @@ cd browser
 npm install
 
 # Run development server
-npm run tauri dev
+npm run dev
 ```
+
+Then open http://localhost:3000 in your browser.
 
 ### Building
 
 ```bash
 # Build for production
-npm run tauri build
-```
+npm run build
 
-The executable will be in `src-tauri/target/release/`.
+# Run production server
+npm run start
+```
 
 ## Project Structure
 
 ```
 browser/
-├── src/                    # Frontend source (Vue/React)
-│   ├── components/         # UI components
-│   ├── pages/              # Page layouts
-│   └── App.vue/App.tsx     # Root component
-├── src-tauri/              # Rust backend
-│   ├── src/
-│   │   └── main.rs         # Application entry point
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
-├── package.json            # Node.js dependencies
-└── vite.config.ts          # Vite configuration
+├── app/
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Main browser page
+│   └── api/
+│       └── proxy/[...path].ts  # URL proxy endpoint
+├── components/
+│   ├── Browser.tsx        # Browser UI component
+│   ├── Toolbar.tsx        # Navigation toolbar
+│   └── TabBar.tsx         # Tab management
+├── lib/
+│   └── utils.ts           # Utility functions
+├── package.json           # Dependencies
+└── tailwind.config.ts     # Tailwind configuration
 ```
+
+## How It Works
+
+1. User enters a URL in the address bar
+2. Browser makes a request through a proxy endpoint (`/api/proxy`)
+3. Proxy fetches the webpage and returns it
+4. Content is displayed in an iframe with full browser history support
+5. Multiple tabs can be opened independently
+
+## Limitations
+
+- Websites with strict CORS policies may not load
+- Some interactive features may be limited due to iframe sandbox
+- JavaScript execution depends on iframe permissions
 
 ## License
 
