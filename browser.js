@@ -8,7 +8,7 @@ class Browser {
       historyIndex: -1
     }];
     this.activeTabId = '1';
-    this.corsProxy = 'https://api.codetabs.com/v1/proxy?quest=';
+    this.corsProxy = 'https://corsproxy.io/?';
     
     this.init();
   }
