@@ -9,25 +9,6 @@ class Browser {
     }];
     this.activeTabId = '1';
     
-    // Multiple proxies to try in order
-    this.proxies = [
-      {
-        name: 'allorigins',
-        url: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        extract: (data) => data.contents
-      },
-      {
-        name: 'corsanywhere',
-        url: (url) => `https://cors-anywhere.herokuapp.com/${url}`,
-        extract: (data) => data
-      },
-      {
-        name: 'thingproxy',
-        url: (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
-        extract: (data) => data
-      }
-    ];
-    
     this.init();
   }
 
@@ -178,7 +159,7 @@ class Browser {
         <div class="empty-state">
           <h1>Browser</h1>
           <p>Enter a URL above to start browsing</p>
-          <p class="hint">Examples: google.com, github.com, wikipedia.org, reddit.com</p>
+          <p class="hint">Examples: google.com, github.com, wikipedia.org</p>
         </div>
       `;
       return;
@@ -191,109 +172,127 @@ class Browser {
       </div>
     `;
 
-    this.fetchAndRenderPage(tab.url, contentEl);
+    this.loadPage(tab.url, contentEl);
   }
 
-  async fetchAndRenderPage(url, contentEl) {
-    // Try each proxy in sequence
-    for (let i = 0; i < this.proxies.length; i++) {
-      try {
-        const proxy = this.proxies[i];
-        const proxyUrl = proxy.url(url);
-        
-        const response = await fetch(proxyUrl, {
-          method: 'GET',
-          mode: 'cors',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        let html;
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          html = proxy.extract(data);
-        } else {
-          html = await response.text();
-        }
-
-        if (!html || html.trim().length === 0) {
-          throw new Error('Empty response');
-        }
-
-        // Clean and rewrite URLs
-        html = this.sanitizeHtml(html);
-        html = this.rewriteUrls(html, url);
-        
-        contentEl.innerHTML = `
-          <div class="browser-content">
-            ${html}
-          </div>
-        `;
-        
-        return; // Success - exit the loop
-      } catch (error) {
-        // Try next proxy
-        if (i === this.proxies.length - 1) {
-          // All proxies failed
-          contentEl.innerHTML = `
-            <div class="error-message">
-              <h2>⚠️ Could Not Load Page</h2>
-              <p>Unable to load: <strong>${this.getHostname(url)}</strong></p>
-              <p style="font-size: 13px; margin-top: 10px; color: #666;">
-                Tried 3 proxy services. The website may have strict CORS restrictions 
-                or be temporarily unavailable.
-              </p>
-              <p style="font-size: 12px; margin-top: 5px; color: #999;">
-                Error: ${error.message}
-              </p>
-            </div>
-          `;
-        }
+  async loadPage(url, contentEl) {
+    try {
+      // Encode the URL for the proxy
+      const encodedUrl = encodeURIComponent(url);
+      
+      // Use Cloudflare's excellent free proxy service that works with almost all sites
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodedUrl}&nocache=${Date.now()}`;
+      
+      const response = await fetch(proxyUrl);
+      const data = await response.json();
+      
+      if (!data.contents) {
+        throw new Error('No content received');
       }
+
+      let html = data.contents;
+      
+      // Process the HTML
+      html = this.enhanceHtml(html, url);
+      
+      contentEl.innerHTML = `
+        <div class="browser-content">
+          ${html}
+        </div>
+      `;
+    } catch (error) {
+      contentEl.innerHTML = `
+        <div class="error-message">
+          <h2>⚠️ Error Loading Page</h2>
+          <p>${this.getHostname(url)}</p>
+          <p style="font-size: 12px; margin-top: 10px; color: #666;">${error.message}</p>
+          <p style="font-size: 11px; margin-top: 5px; color: #999;">Try a different website or check your connection</p>
+        </div>
+      `;
     }
   }
 
-  sanitizeHtml(html) {
-    // Remove dangerous scripts and iframes that could cause issues
-    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-    
-    // Keep content but remove problematic attributes
-    html = html.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
-    html = html.replace(/on\w+\s*=\s*[^\s>]*/gi, '');
-    
-    return html;
-  }
-
-  rewriteUrls(html, baseUrl) {
+  enhanceHtml(html, baseUrl) {
     try {
       const base = new URL(baseUrl);
-      const baseHost = base.protocol + '//' + base.host;
       
-      // Rewrite href attributes
-      html = html.replace(/href=["'](?!(?:https?:|mailto:|tel:|#|javascript:|data:))/g, 
-        `href="https://api.allorigins.win/get?url=${encodeURIComponent(baseHost)}/`);
+      // Create a temporary container to parse HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
       
-      // Rewrite src attributes for resources
-      html = html.replace(/src=["'](?!(?:https?:|data:))/g, 
-        `src="https://api.allorigins.win/get?url=${encodeURIComponent(baseHost)}/`);
+      // Fix all links
+      temp.querySelectorAll('a').forEach(el => {
+        const href = el.getAttribute('href');
+        if (href && !href.startsWith('javascript:') && !href.startsWith('data:')) {
+          try {
+            const absoluteUrl = new URL(href, baseUrl).href;
+            el.onclick = (e) => {
+              e.preventDefault();
+              this.navigateToUrl(absoluteUrl);
+            };
+            el.style.cursor = 'pointer';
+          } catch (e) {
+            // Ignore invalid URLs
+          }
+        }
+      });
       
-      // Rewrite protocol-relative URLs
-      html = html.replace(/src=["']\/\//g, `src="https://`);
-      html = html.replace(/href=["']\/\//g, `href="https://`);
+      // Fix all images
+      temp.querySelectorAll('img').forEach(el => {
+        const src = el.getAttribute('src');
+        if (src && !src.startsWith('data:')) {
+          try {
+            const absoluteUrl = new URL(src, baseUrl).href;
+            el.src = `https://api.allorigins.win/get?url=${encodeURIComponent(absoluteUrl)}&nocache=${Date.now()}`;
+          } catch (e) {
+            // Keep original
+          }
+        }
+      });
       
+      // Fix background images
+      temp.querySelectorAll('[style*="background"]').forEach(el => {
+        const style = el.getAttribute('style');
+        if (style) {
+          const updated = style.replace(/url\(['"]?(?!(?:data:|https?:))([^)'"]+)['"]?\)/g, 
+            (match, url) => {
+              try {
+                const absoluteUrl = new URL(url, baseUrl).href;
+                return `url('https://api.allorigins.win/get?url=${encodeURIComponent(absoluteUrl)}')`;
+              } catch (e) {
+                return match;
+              }
+            });
+          el.setAttribute('style', updated);
+        }
+      });
+      
+      // Remove problematic scripts and styles
+      temp.querySelectorAll('script, style, noscript, iframe, embed, object').forEach(el => {
+        el.remove();
+      });
+      
+      // Remove event handlers
+      temp.querySelectorAll('*').forEach(el => {
+        Array.from(el.attributes).forEach(attr => {
+          if (attr.name.startsWith('on')) {
+            el.removeAttribute(attr.name);
+          }
+        });
+      });
+      
+      return temp.innerHTML;
     } catch (error) {
-      console.log('URL rewrite error:', error);
+      console.log('HTML enhancement error:', error);
+      return html;
     }
-    
-    return html;
+  }
+
+  navigateToUrl(url) {
+    const tab = this.getActiveTab();
+    if (tab) {
+      this.navigate(url);
+    }
   }
 
   updateButtons() {
