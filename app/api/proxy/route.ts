@@ -1,44 +1,116 @@
-import { NextRequest, NextResponse } from 'next/server'
-import axios from 'axios'
+import type { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest) {
-  const url = request.nextUrl.searchParams.get('url')
+export const config = {
+  api: {
+    responseLimit: '50mb',
+  },
+}
 
-  if (!url) {
-    return NextResponse.json(
-      { error: 'URL parameter is required' },
-      { status: 400 }
-    )
-  }
+const PROXY_ORIGIN = process.env.NEXT_PUBLIC_PROXY_ORIGIN || 'http://localhost:3000'
 
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const response = await axios.get(url, {
+    const url = request.nextUrl.searchParams.get('url')
+
+    if (!url) {
+      return new NextResponse('Missing URL parameter', { status: 400 })
+    }
+
+    // Decode and validate URL
+    let targetUrl = decodeURIComponent(url)
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl
+    }
+
+    // Fetch the target website
+    const response = await fetch(targetUrl, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate',
       },
-      timeout: 10000,
-      maxRedirects: 5,
+      redirect: 'follow',
     })
 
-    const contentType = response.headers['content-type'] || 'text/html'
+    let content = await response.text()
+    const contentType = response.headers.get('content-type') || 'text/html'
 
-    return new NextResponse(response.data, {
-      status: 200,
+    // Rewrite URLs in HTML content
+    if (contentType.includes('text/html')) {
+      content = rewriteUrls(content, targetUrl)
+    }
+
+    return new NextResponse(content, {
+      status: response.status,
       headers: {
         'Content-Type': contentType,
         'X-Frame-Options': 'ALLOWALL',
-        'Content-Security-Policy': "default-src *; style-src * 'unsafe-inline'; script-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:;",
+        'Access-Control-Allow-Origin': '*',
       },
     })
   } catch (error) {
     console.error('Proxy error:', error)
-    return NextResponse.json(
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return new NextResponse(
+      `<h1>Error Loading Page</h1><p>${errorMessage}</p><p><a href="/">← Go Back</a></p>`,
       {
-        error: 'Failed to fetch the URL',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
+        status: 500,
+        headers: { 'Content-Type': 'text/html' },
+      }
     )
+  }
+}
+
+function rewriteUrls(html: string, baseUrl: string): string {
+  const base = new URL(baseUrl)
+  const baseOrigin = base.origin
+
+  // Rewrite href attributes
+  html = html.replace(/href=["']([^"']+)["']/g, (match, url) => {
+    return `href="${rewriteUrl(url, baseOrigin, base)}"`
+  })
+
+  // Rewrite src attributes
+  html = html.replace(/src=["']([^"']+)["']/g, (match, url) => {
+    return `src="${rewriteUrl(url, baseOrigin, base)}"`
+  })
+
+  // Rewrite data attributes
+  html = html.replace(/data-src=["']([^"']+)["']/g, (match, url) => {
+    return `data-src="${rewriteUrl(url, baseOrigin, base)}"`
+  })
+
+  // Rewrite form actions
+  html = html.replace(/action=["']([^"']+)["']/g, (match, url) => {
+    return `action="${rewriteUrl(url, baseOrigin, base)}"`
+  })
+
+  return html
+}
+
+function rewriteUrl(url: string, baseOrigin: string, baseUrl: URL): string {
+  if (!url || url.startsWith('javascript:') || url.startsWith('data:')) {
+    return url
+  }
+
+  try {
+    let absoluteUrl: string
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      absoluteUrl = url
+    } else if (url.startsWith('//')) {
+      absoluteUrl = baseUrl.protocol + url
+    } else if (url.startsWith('/')) {
+      absoluteUrl = baseOrigin + url
+    } else {
+      absoluteUrl = new URL(url, baseUrl).href
+    }
+
+    return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`
+  } catch {
+    return url
   }
 }

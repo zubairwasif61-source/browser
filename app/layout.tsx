@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Browser',
-  description: 'A web-based browser built with Next.js',
+  title: 'Browser Proxy',
+  description: 'A web-based proxy to browse any website',
 }
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-white">
         {children}
       </body>
     </html>

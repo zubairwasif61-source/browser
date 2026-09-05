@@ -16,8 +16,8 @@
     "noImplicitReturns": true,
     "skipDefaultLibCheck": true,
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
     "allowJs": true,
+    "resolveJsonModule": true,
     "paths": {
       "@/*": ["./*"]
     }

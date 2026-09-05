@@ -1,88 +1,78 @@
-# Browser
+# Browser Proxy
 
-A web-based browser built with Next.js and React.
+A web-based proxy service that lets you browse any website through an iframe. Run it locally and access it in your browser to browse the web through the proxy.
 
 ## Features
 
-- Tabbed browsing
-- URL navigation via iframe
-- Browser history (back/forward)
-- Address bar with URL input
-- Responsive design
-- No desktop dependencies required
+- 🌐 Browse any website through a web proxy
+- 📑 Tabbed browsing with independent history
+- ⬅️ Back/Forward navigation
+- 🔄 Reload functionality
+- 📍 Address bar with URL input
+- 🎨 Clean, minimal UI
+- ⚡ Fast and lightweight
 
 ## Tech Stack
 
-- **Frontend:** React + TypeScript
-- **Framework:** Next.js (App Router)
-- **Styling:** Tailwind CSS
-- **Runtime:** Node.js
+- **Frontend:** React + TypeScript + Tailwind CSS
+- **Backend:** Next.js API Routes + Node.js
+- **Proxy:** Custom URL proxy with CORS handling
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
-
 - Node.js 18+
 - npm or yarn
 
-### Installation
+### Installation & Running
 
 ```bash
-# Clone the repository
-git clone https://github.com/zubairwasif61-source/browser.git
-cd browser
-
 # Install dependencies
 npm install
 
-# Run development server
+# Start the development server
 npm run dev
 ```
 
-Then open http://localhost:3000 in your browser.
+Then open **http://localhost:3000** in Chrome and start browsing!
 
-### Building
+### Production Build
 
 ```bash
-# Build for production
 npm run build
-
-# Run production server
 npm run start
-```
-
-## Project Structure
-
-```
-browser/
-├── app/
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Main browser page
-│   └── api/
-│       └── proxy/[...path].ts  # URL proxy endpoint
-├── components/
-│   ├── Browser.tsx        # Browser UI component
-│   ├── Toolbar.tsx        # Navigation toolbar
-│   └── TabBar.tsx         # Tab management
-├── lib/
-│   └── utils.ts           # Utility functions
-├── package.json           # Dependencies
-└── tailwind.config.ts     # Tailwind configuration
 ```
 
 ## How It Works
 
-1. User enters a URL in the address bar
-2. Browser makes a request through a proxy endpoint (`/api/proxy`)
-3. Proxy fetches the webpage and returns it
-4. Content is displayed in an iframe with full browser history support
-5. Multiple tabs can be opened independently
+1. You enter a URL in the address bar (e.g., `google.com`)
+2. The proxy fetches the webpage from that URL
+3. The page is displayed in an iframe with URL rewriting
+4. Links and forms are proxied through the same endpoint
+5. You can navigate, reload, and manage tabs normally
+
+## Architecture
+
+```
+Chrome Browser
+    ↓
+    └→ http://localhost:3000 (Next.js App)
+         ↓
+         ├→ Frontend: Tab UI, Address Bar, Navigation
+         │
+         └→ Backend: /api/proxy endpoint
+              ↓
+              └→ Fetches & rewrites URLs from any website
+                   ↓
+                   └→ Returns to iframe
+```
 
 ## Limitations
 
-- Websites with strict CORS policies may not load
-- Some interactive features may be limited due to iframe sandbox
-- JavaScript execution depends on iframe permissions
+- Websites with strict CORS policies may have issues
+- Some JavaScript may not work due to iframe sandbox restrictions
+- Cookies and local storage are sandboxed
+- SSL certificates may cause warnings
 
 ## License
 
