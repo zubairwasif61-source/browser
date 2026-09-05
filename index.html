@@ -58,9 +58,31 @@
             cursor: not-allowed;
         }
 
+        .search-container {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .search-engine-select {
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .search-engine-select:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+        }
+
         .address-bar {
             flex: 1;
-            min-width: 200px;
             padding: 8px 12px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -71,6 +93,10 @@
             outline: none;
             border-color: #0066cc;
             box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+        }
+
+        .search-btn {
+            padding: 8px 16px;
         }
 
         .tabs {
@@ -233,8 +259,20 @@
             <button id="backBtn" title="Back">← Back</button>
             <button id="forwardBtn" title="Forward">Forward →</button>
             <button id="reloadBtn" title="Reload">🔄 Reload</button>
-            <input type="text" id="addressBar" class="address-bar" placeholder="Enter URL... (e.g., google.com)">
-            <button id="goBtn">Go</button>
+            
+            <div class="search-container">
+                <select id="searchEngine" class="search-engine-select">
+                    <option value="google">🔍 Google</option>
+                    <option value="duckduckgo">🦆 DuckDuckGo</option>
+                    <option value="bing">🔵 Bing</option>
+                    <option value="wikipedia">📚 Wikipedia</option>
+                    <option value="youtube">▶ YouTube</option>
+                    <option value="github">🐙 GitHub</option>
+                    <option value="reddit">🔴 Reddit</option>
+                </select>
+                <input type="text" id="addressBar" class="address-bar" placeholder="Search or enter URL...">
+                <button id="goBtn" class="search-btn">Go</button>
+            </div>
         </div>
 
         <div class="tabs" id="tabs"></div>
