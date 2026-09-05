@@ -9,6 +9,37 @@ class Browser {
     }];
     this.activeTabId = '1';
     
+    this.searchEngines = {
+      google: {
+        name: 'Google',
+        url: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`
+      },
+      duckduckgo: {
+        name: 'DuckDuckGo',
+        url: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`
+      },
+      bing: {
+        name: 'Bing',
+        url: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`
+      },
+      wikipedia: {
+        name: 'Wikipedia',
+        url: (query) => `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`
+      },
+      youtube: {
+        name: 'YouTube',
+        url: (query) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+      },
+      github: {
+        name: 'GitHub',
+        url: (query) => `https://github.com/search?q=${encodeURIComponent(query)}`
+      },
+      reddit: {
+        name: 'Reddit',
+        url: (query) => `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`
+      }
+    };
+    
     this.init();
   }
 
@@ -21,10 +52,38 @@ class Browser {
     document.getElementById('backBtn').addEventListener('click', () => this.goBack());
     document.getElementById('forwardBtn').addEventListener('click', () => this.goForward());
     document.getElementById('reloadBtn').addEventListener('click', () => this.reload());
-    document.getElementById('goBtn').addEventListener('click', () => this.navigate());
+    document.getElementById('goBtn').addEventListener('click', () => this.handleSearch());
     document.getElementById('addressBar').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.navigate();
+      if (e.key === 'Enter') this.handleSearch();
     });
+  }
+
+  handleSearch() {
+    const input = document.getElementById('addressBar').value.trim();
+    
+    if (!input) return;
+    
+    // Check if it's a URL or a search query
+    if (this.isUrl(input)) {
+      // It's a URL
+      this.navigate(input);
+    } else {
+      // It's a search query
+      const selectedEngine = document.getElementById('searchEngine').value;
+      const engine = this.searchEngines[selectedEngine];
+      const searchUrl = engine.url(input);
+      this.navigate(searchUrl);
+    }
+  }
+
+  isUrl(str) {
+    try {
+      new URL(str);
+      return true;
+    } catch (e) {
+      // Check if it looks like a domain
+      return str.includes('.') && !str.includes(' ');
+    }
   }
 
   getActiveTab() {
@@ -158,8 +217,8 @@ class Browser {
       contentEl.innerHTML = `
         <div class="empty-state">
           <h1>Browser</h1>
-          <p>Enter a URL above to start browsing</p>
-          <p class="hint">Examples: google.com, github.com, wikipedia.org</p>
+          <p>Search or enter a URL to get started</p>
+          <p class="hint">Examples: "javascript", "github", "https://google.com"</p>
         </div>
       `;
       return;
