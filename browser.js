@@ -8,7 +8,9 @@ class Browser {
       historyIndex: -1
     }];
     this.activeTabId = '1';
-    this.corsProxy = 'https://corsproxy.io/?';
+    // Updated to use a more reliable CORS proxy with fallback
+    this.corsProxy = 'https://api.allorigins.win/get?url=';
+    this.proxyFallback = 'https://thingproxy.freeboard.io/fetch/';
     
     this.init();
   }
