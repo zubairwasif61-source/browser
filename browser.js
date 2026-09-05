@@ -80,14 +80,7 @@ class Browser {
   reload() {
     const tab = this.getActiveTab();
     if (!tab || !tab.url) return;
-    // Force re-render by changing URL slightly
-    const currentUrl = tab.url;
-    tab.url = '';
     this.render();
-    setTimeout(() => {
-      tab.url = currentUrl;
-      this.render();
-    }, 100);
   }
 
   addTab() {
@@ -172,17 +165,56 @@ class Browser {
       return;
     }
 
-    // Use thingproxy which works directly with URLs
-    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/' + tab.url;
-    
     contentEl.innerHTML = `
-      <iframe 
-        src="${proxyUrl}" 
-        title="${tab.title}"
-        sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-pointer-lock allow-top-navigation-by-user-activation"
-        onerror="this.parentElement.innerHTML = '<div class=\"error-message\"><h2>Error Loading Page</h2><p>The website could not be loaded. It may have CORS restrictions or be temporarily unavailable.</p></div>'"
-      ></iframe>
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Loading ${this.getHostname(tab.url)}...</span>
+      </div>
     `;
+
+    this.fetchAndRenderPage(tab.url, contentEl);
+  }
+
+  async fetchAndRenderPage(url, contentEl) {
+    try {
+      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+      const response = await fetch(proxyUrl);
+      const data = await response.json();
+      
+      if (data.contents) {
+        // Rewrite URLs in the HTML to use proxy
+        let html = data.contents;
+        html = this.rewriteUrls(html, url);
+        
+        contentEl.innerHTML = `
+          <div class="browser-content">
+            ${html}
+          </div>
+        `;
+      } else {
+        throw new Error('No content returned');
+      }
+    } catch (error) {
+      contentEl.innerHTML = `
+        <div class="error-message">
+          <h2>⚠️ Error Loading Page</h2>
+          <p>Could not load: ${this.getHostname(url)}</p>
+          <p style="font-size: 12px; margin-top: 10px; color: #666;">${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  rewriteUrls(html, baseUrl) {
+    // Create a base URL object for relative URL resolution
+    const base = new URL(baseUrl);
+    
+    // Simple regex replacements for common URL patterns
+    // This is a basic implementation - a full solution would use DOM parsing
+    html = html.replace(/href=["'](?!(?:https?:|mailto:|#))/g, `href="${base.protocol}//${base.host}/`);
+    html = html.replace(/src=["'](?!(?:https?:|data:))/g, `src="${base.protocol}//${base.host}/`);
+    
+    return html;
   }
 
   updateButtons() {
@@ -196,7 +228,7 @@ class Browser {
     try {
       return new URL(url).hostname;
     } catch {
-      return null;
+      return url;
     }
   }
 }
