@@ -9,6 +9,25 @@ class Browser {
     }];
     this.activeTabId = '1';
     
+    // Multiple proxies to try in order
+    this.proxies = [
+      {
+        name: 'allorigins',
+        url: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        extract: (data) => data.contents
+      },
+      {
+        name: 'corsanywhere',
+        url: (url) => `https://cors-anywhere.herokuapp.com/${url}`,
+        extract: (data) => data
+      },
+      {
+        name: 'thingproxy',
+        url: (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
+        extract: (data) => data
+      }
+    ];
+    
     this.init();
   }
 
@@ -159,7 +178,7 @@ class Browser {
         <div class="empty-state">
           <h1>Browser</h1>
           <p>Enter a URL above to start browsing</p>
-          <p class="hint">Examples: google.com, github.com, wikipedia.org</p>
+          <p class="hint">Examples: google.com, github.com, wikipedia.org, reddit.com</p>
         </div>
       `;
       return;
@@ -176,14 +195,40 @@ class Browser {
   }
 
   async fetchAndRenderPage(url, contentEl) {
-    try {
-      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-      const response = await fetch(proxyUrl);
-      const data = await response.json();
-      
-      if (data.contents) {
-        // Rewrite URLs in the HTML to use proxy
-        let html = data.contents;
+    // Try each proxy in sequence
+    for (let i = 0; i < this.proxies.length; i++) {
+      try {
+        const proxy = this.proxies[i];
+        const proxyUrl = proxy.url(url);
+        
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        let html;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          html = proxy.extract(data);
+        } else {
+          html = await response.text();
+        }
+
+        if (!html || html.trim().length === 0) {
+          throw new Error('Empty response');
+        }
+
+        // Clean and rewrite URLs
+        html = this.sanitizeHtml(html);
         html = this.rewriteUrls(html, url);
         
         contentEl.innerHTML = `
@@ -191,28 +236,62 @@ class Browser {
             ${html}
           </div>
         `;
-      } else {
-        throw new Error('No content returned');
+        
+        return; // Success - exit the loop
+      } catch (error) {
+        // Try next proxy
+        if (i === this.proxies.length - 1) {
+          // All proxies failed
+          contentEl.innerHTML = `
+            <div class="error-message">
+              <h2>⚠️ Could Not Load Page</h2>
+              <p>Unable to load: <strong>${this.getHostname(url)}</strong></p>
+              <p style="font-size: 13px; margin-top: 10px; color: #666;">
+                Tried 3 proxy services. The website may have strict CORS restrictions 
+                or be temporarily unavailable.
+              </p>
+              <p style="font-size: 12px; margin-top: 5px; color: #999;">
+                Error: ${error.message}
+              </p>
+            </div>
+          `;
+        }
       }
-    } catch (error) {
-      contentEl.innerHTML = `
-        <div class="error-message">
-          <h2>⚠️ Error Loading Page</h2>
-          <p>Could not load: ${this.getHostname(url)}</p>
-          <p style="font-size: 12px; margin-top: 10px; color: #666;">${error.message}</p>
-        </div>
-      `;
     }
   }
 
-  rewriteUrls(html, baseUrl) {
-    // Create a base URL object for relative URL resolution
-    const base = new URL(baseUrl);
+  sanitizeHtml(html) {
+    // Remove dangerous scripts and iframes that could cause issues
+    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
     
-    // Simple regex replacements for common URL patterns
-    // This is a basic implementation - a full solution would use DOM parsing
-    html = html.replace(/href=["'](?!(?:https?:|mailto:|#))/g, `href="${base.protocol}//${base.host}/`);
-    html = html.replace(/src=["'](?!(?:https?:|data:))/g, `src="${base.protocol}//${base.host}/`);
+    // Keep content but remove problematic attributes
+    html = html.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+    html = html.replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+    
+    return html;
+  }
+
+  rewriteUrls(html, baseUrl) {
+    try {
+      const base = new URL(baseUrl);
+      const baseHost = base.protocol + '//' + base.host;
+      
+      // Rewrite href attributes
+      html = html.replace(/href=["'](?!(?:https?:|mailto:|tel:|#|javascript:|data:))/g, 
+        `href="https://api.allorigins.win/get?url=${encodeURIComponent(baseHost)}/`);
+      
+      // Rewrite src attributes for resources
+      html = html.replace(/src=["'](?!(?:https?:|data:))/g, 
+        `src="https://api.allorigins.win/get?url=${encodeURIComponent(baseHost)}/`);
+      
+      // Rewrite protocol-relative URLs
+      html = html.replace(/src=["']\/\//g, `src="https://`);
+      html = html.replace(/href=["']\/\//g, `href="https://`);
+      
+    } catch (error) {
+      console.log('URL rewrite error:', error);
+    }
     
     return html;
   }
